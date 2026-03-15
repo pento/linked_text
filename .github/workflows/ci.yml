@@ -38,6 +38,7 @@ jobs:
       - run: flutter test --coverage
       - uses: pento/lcov-coverage-check@v2
         with:
-          lcov-file: coverage/lcov.info
-          min-coverage-new-files: 80
-          allow-regression: false
+          new-file-minimum-coverage: 80
+          path: "lib/"
+          changed-file-no-decrease: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
