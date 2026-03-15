@@ -1,0 +1,26 @@
+name: linked_text
+description: >-
+  A Flutter widget that renders text with interpolated tappable links using a
+  simple template syntax.
+version: 1.0.0
+repository: https://github.com/pento/linked_text
+topics:
+  - text
+  - links
+  - rich-text
+  - url-launcher
+  - widget
+
+environment:
+  sdk: '>=3.4.0'
+  flutter: '>=3.22.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  url_launcher: ^6.2.0
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter

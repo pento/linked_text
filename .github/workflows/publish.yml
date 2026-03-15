@@ -1,0 +1,110 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions: {}
+
+jobs:
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract version from tag
+        id: tag
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Check pubspec.yaml version matches tag
+        run: |
+          pubspec_version=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          tag_version="${{ steps.tag.outputs.version }}"
+          if [[ "$pubspec_version" != "$tag_version" ]]; then
+            echo "::error::Tag version ($tag_version) does not match pubspec.yaml version ($pubspec_version)"
+            exit 1
+          fi
+
+      - name: Check CHANGELOG.md has entry for version
+        run: |
+          tag_version="${{ steps.tag.outputs.version }}"
+          if ! grep -q "^## $tag_version" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no entry for version $tag_version"
+            exit 1
+          fi
+
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: master
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: master
+          cache: true
+      - run: flutter pub get
+      - run: flutter test --coverage
+      - uses: pento/lcov-coverage-check@v2
+        with:
+          lcov-file: coverage/lcov.info
+          min-coverage-new-files: 80
+          allow-regression: false
+
+  publish:
+    name: Publish to pub.dev
+    needs: [validate, analyze, test]
+    permissions:
+      id-token: write
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+
+  github-release:
+    name: Create GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract version from tag
+        id: tag
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog section
+        id: changelog
+        run: |
+          version="${{ steps.tag.outputs.version }}"
+          # Extract the section between this version's heading and the next heading (or EOF)
+          body=$(awk "/^## ${version//./\\.}\$/{found=1; next} /^## /{if(found) exit} found{print}" CHANGELOG.md)
+          # Write to file to avoid delimiter issues
+          echo "$body" > /tmp/release-body.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file /tmp/release-body.md
