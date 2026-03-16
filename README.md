@@ -21,6 +21,14 @@ dependencies:
   linked_text: ^1.0.0
 ```
 
+### Localization
+
+The `{{text}}` placeholder syntax used by `linked_text` clashes with Flutter's `gen_l10n` ICU message parser. To fix this, `l10n.yaml` needs `relax-syntax: true`.
+
+**This is handled automatically.** The package includes a build hook that detects your `l10n.yaml` and adds the setting if it's missing. If your first build after adding `linked_text` fails with ICU syntax errors, just re-run the build — the hook will have already fixed the configuration.
+
+If you don't use `gen_l10n` (no `l10n.yaml`), no action is needed.
+
 ## Usage
 
 ### Basic usage with a single link
