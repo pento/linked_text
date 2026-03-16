@@ -124,7 +124,7 @@ output-localization-file: app_localizations.dart
 
       final Uri? result = findProjectRoot(nested.uri);
       expect(result, isNotNull);
-      expect(result!.toFilePath(), equals('${tempDir.path}/'));
+      expect(result, equals(tempDir.uri));
     });
 
     test('returns root when already at root', () {
@@ -132,35 +132,19 @@ output-localization-file: app_localizations.dart
 
       final Uri? result = findProjectRoot(tempDir.uri);
       expect(result, isNotNull);
-      expect(result!.toFilePath(), equals('${tempDir.path}/'));
+      expect(result, equals(tempDir.uri));
     });
 
-    test('returns null when no pubspec.yaml exists', () {
-      // Create a nested directory with no pubspec.yaml anywhere.
-      final Directory nested = Directory('${tempDir.path}/a/b')
+    test('returns null when exceeding depth limit', () {
+      // Create a directory nested >20 levels deep with no pubspec.yaml
+      // anywhere in the tree. The 20-iteration limit guarantees null.
+      final String deepPath =
+          List<String>.generate(21, (int i) => 'd$i').join('/');
+      final Directory nested = Directory('${tempDir.path}/$deepPath')
         ..createSync(recursive: true);
 
       final Uri? result = findProjectRoot(nested.uri);
-      // Will eventually hit filesystem root and stop — should return null
-      // or find a real pubspec.yaml from the test environment. Since we're
-      // in a temp dir that's nested under the system temp, the walk will
-      // eventually hit the filesystem root and return null (or find an
-      // unrelated pubspec.yaml). We test the 20-iteration limit indirectly.
-      //
-      // For a truly isolated test, we rely on the fact that system temp
-      // directories don't typically contain pubspec.yaml files in their
-      // parent chain. If this test becomes flaky, it should be adjusted.
-      //
-      // We check that if it does return something, it's not our temp dir
-      // (which has no pubspec.yaml).
-      if (result != null) {
-        // It found a pubspec.yaml somewhere up the tree — that's fine,
-        // but it shouldn't be inside our temp dir.
-        expect(
-          result.toFilePath(),
-          isNot(startsWith('${tempDir.path}/')),
-        );
-      }
+      expect(result, isNull);
     });
   });
 }

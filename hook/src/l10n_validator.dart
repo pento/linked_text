@@ -59,13 +59,16 @@ String addRelaxSyntax(String content) {
   // Append to the end of the file.
   final StringBuffer buffer = StringBuffer(content);
 
-  // Ensure we start on a new line.
-  if (content.isNotEmpty && !content.endsWith('\n')) {
+  if (content.isNotEmpty) {
+    // Ensure we start on a new line.
+    if (!content.endsWith('\n')) {
+      buffer.writeln();
+    }
+    // Blank separator line before our addition.
     buffer.writeln();
   }
 
   buffer
-    ..writeln()
     ..writeln('# Required by linked_text for its placeholder syntax.')
     ..writeln('relax-syntax: true');
 
