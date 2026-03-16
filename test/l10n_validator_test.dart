@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import '../hook/src/l10n_validator.dart';
+import '../hook/build.dart';
 
 void main() {
   group('hasRelaxSyntax', () {
