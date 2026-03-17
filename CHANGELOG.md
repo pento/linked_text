@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.2
+
+- Prevent an out-of-bounds URL index in a string template from causing a crash. If an index is out of bounds, the link will simply be non-interactive.
+
 ## 1.1.1
 
 - Updated the minimum Dart SDK constraint to 3.6.0.

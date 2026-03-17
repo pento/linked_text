@@ -57,7 +57,7 @@ class LinkTextSegment extends LinkedTextSegment {
           other.urlIndex == urlIndex;
 
   @override
-  int get hashCode => Object.hash(text, urlIndex);
+  int get hashCode => toString().hashCode;
 
   @override
   String toString() => 'LinkTextSegment("$text", urlIndex: $urlIndex)';

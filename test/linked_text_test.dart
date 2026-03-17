@@ -2,6 +2,55 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:linked_text/linked_text.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:url_launcher_platform_interface/link.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
+
+class MockUrlLauncherPlatform extends Fake
+    with MockPlatformInterfaceMixin
+    implements UrlLauncherPlatform {
+  String? launchedUrl;
+
+  @override
+  LinkDelegate? get linkDelegate => null;
+
+  @override
+  Future<bool> canLaunch(final String url) async => true;
+
+  @override
+  Future<bool> launch(
+    final String url, {
+    required final bool useSafariVC,
+    required final bool useWebView,
+    required final bool enableJavaScript,
+    required final bool enableDomStorage,
+    required final bool universalLinksOnly,
+    required final Map<String, String> headers,
+    final String? webOnlyWindowName,
+  }) async {
+    launchedUrl = url;
+    return true;
+  }
+
+  @override
+  Future<bool> launchUrl(
+    final String url,
+    final LaunchOptions options,
+  ) async {
+    launchedUrl = url;
+    return true;
+  }
+
+  @override
+  Future<void> closeWebView() async {}
+
+  @override
+  Future<bool> supportsMode(final PreferredLaunchMode mode) async => true;
+
+  @override
+  Future<bool> supportsCloseForMode(final PreferredLaunchMode mode) async =>
+      true;
+}
 
 void main() {
   Widget buildTestWidget(final LinkedText linkedText) => MaterialApp(
@@ -349,6 +398,200 @@ void main() {
       expect(tappedUrl, 'https://new.com');
     });
 
+    testWidgets('didUpdateWidget re-parses when only text changes', (
+      final WidgetTester tester,
+    ) async {
+      String? tappedUrl;
+      void onTap(final String url, final int index) {
+        tappedUrl = url;
+      }
+
+      const List<String> urls = <String>['https://example.com'];
+      const List<String> urlLabels = <String>['Example'];
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          LinkedText(
+            text: 'Click {{here}}.',
+            urls: urls,
+            urlLabels: urlLabels,
+            onTap: onTap,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          LinkedText(
+            text: 'Click {{there}}.',
+            urls: urls,
+            urlLabels: urlLabels,
+            onTap: onTap,
+          ),
+        ),
+      );
+
+      final RichText richText = tester.widget<RichText>(
+        find.byType(RichText),
+      );
+      final TextSpan textSpan = richText.text as TextSpan;
+      final TextSpan linkSpan = textSpan.children![1] as TextSpan;
+
+      expect(linkSpan.text, 'there');
+      (linkSpan.recognizer! as TapGestureRecognizer).onTap!();
+      expect(tappedUrl, 'https://example.com');
+    });
+
+    testWidgets('didUpdateWidget re-parses when only urls changes', (
+      final WidgetTester tester,
+    ) async {
+      String? tappedUrl;
+      void onTap(final String url, final int index) {
+        tappedUrl = url;
+      }
+
+      const String text = 'Click {{here}}.';
+      const List<String> urlLabels = <String>['Example'];
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          LinkedText(
+            text: text,
+            urls: const <String>['https://old.com'],
+            urlLabels: urlLabels,
+            onTap: onTap,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          LinkedText(
+            text: text,
+            urls: const <String>['https://new.com'],
+            urlLabels: urlLabels,
+            onTap: onTap,
+          ),
+        ),
+      );
+
+      final RichText richText = tester.widget<RichText>(
+        find.byType(RichText),
+      );
+      final TextSpan textSpan = richText.text as TextSpan;
+      final TextSpan linkSpan = textSpan.children![1] as TextSpan;
+      (linkSpan.recognizer! as TapGestureRecognizer).onTap!();
+      expect(tappedUrl, 'https://new.com');
+    });
+
+    testWidgets('uses latest onTap callback after widget update', (
+      final WidgetTester tester,
+    ) async {
+      bool handlerACalled = false;
+      bool handlerBCalled = false;
+
+      const String text = 'Click {{here}}.';
+      const List<String> urls = <String>['https://example.com'];
+      const List<String> urlLabels = <String>['Example'];
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          LinkedText(
+            text: text,
+            urls: urls,
+            urlLabels: urlLabels,
+            onTap: (final String url, final int index) {
+              handlerACalled = true;
+            },
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          LinkedText(
+            text: text,
+            urls: urls,
+            urlLabels: urlLabels,
+            onTap: (final String url, final int index) {
+              handlerBCalled = true;
+            },
+          ),
+        ),
+      );
+
+      final RichText richText = tester.widget<RichText>(
+        find.byType(RichText),
+      );
+      final TextSpan textSpan = richText.text as TextSpan;
+      final TextSpan linkSpan = textSpan.children![1] as TextSpan;
+      (linkSpan.recognizer! as TapGestureRecognizer).onTap!();
+      expect(handlerACalled, isFalse);
+      expect(handlerBCalled, isTrue);
+    });
+
+    testWidgets('tapping link without onTap calls launchUrl', (
+      final WidgetTester tester,
+    ) async {
+      final MockUrlLauncherPlatform mockPlatform = MockUrlLauncherPlatform();
+      final UrlLauncherPlatform originalPlatform = UrlLauncherPlatform.instance;
+      UrlLauncherPlatform.instance = mockPlatform;
+      addTearDown(() {
+        UrlLauncherPlatform.instance = originalPlatform;
+      });
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          LinkedText(
+            text: 'Click {{here}}.',
+            urls: const <String>['https://example.com'],
+            urlLabels: const <String>['Example'],
+          ),
+        ),
+      );
+
+      final RichText richText = tester.widget<RichText>(
+        find.byType(RichText),
+      );
+      final TextSpan textSpan = richText.text as TextSpan;
+      final TextSpan linkSpan = textSpan.children![1] as TextSpan;
+      (linkSpan.recognizer! as TapGestureRecognizer).onTap!();
+      expect(mockPlatform.launchedUrl, 'https://example.com');
+    });
+
+    testWidgets('link with out-of-bounds urlIndex renders as plain text', (
+      final WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        buildTestWidget(
+          LinkedText(
+            text: '{{link1}} and {{link2}}',
+            urls: const <String>['https://example.com'],
+            urlLabels: const <String>['Link 1'],
+          ),
+        ),
+      );
+
+      final RichText richText = tester.widget<RichText>(
+        find.byType(RichText),
+      );
+      final TextSpan textSpan = richText.text as TextSpan;
+      final List<InlineSpan> children = textSpan.children!;
+
+      // link1 (urlIndex 0) should be a link with style and recognizer.
+      expect((children[0] as TextSpan).text, 'link1');
+      expect((children[0] as TextSpan).recognizer, isA<TapGestureRecognizer>());
+      expect((children[0] as TextSpan).style, isNotNull);
+
+      // " and " is plain text.
+      expect((children[1] as TextSpan).text, ' and ');
+
+      // link2 (urlIndex 1) is out of bounds — rendered as plain text.
+      expect((children[2] as TextSpan).text, 'link2');
+      expect((children[2] as TextSpan).recognizer, isNull);
+      expect((children[2] as TextSpan).style, isNull);
+    });
+
     testWidgets('renders links as plain text when urls is null', (
       final WidgetTester tester,
     ) async {
@@ -362,9 +605,16 @@ void main() {
         find.byType(RichText),
       );
       final TextSpan textSpan = richText.text as TextSpan;
+      final List<InlineSpan> children = textSpan.children!;
+
+      // Verify all 3 spans are present with correct text.
+      expect(children, hasLength(3));
+      expect((children[0] as TextSpan).text, 'Click ');
+      expect((children[1] as TextSpan).text, 'here');
+      expect((children[2] as TextSpan).text, '.');
 
       // All spans should be plain text (no recognizer).
-      for (final InlineSpan child in textSpan.children!) {
+      for (final InlineSpan child in children) {
         final TextSpan span = child as TextSpan;
         expect(span.recognizer, isNull);
       }

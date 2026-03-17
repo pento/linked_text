@@ -105,8 +105,7 @@ class _LinkedTextState extends State<LinkedText> {
   void didUpdateWidget(covariant final LinkedText oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.text != widget.text ||
-        !listEquals(oldWidget.urls, widget.urls) ||
-        oldWidget.onTap != widget.onTap) {
+        !listEquals(oldWidget.urls, widget.urls)) {
       _disposeRecognizers();
       _parse();
     }
