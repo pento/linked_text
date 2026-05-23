@@ -52,13 +52,12 @@ fi
 # Check that pubspec.yaml actually needs updating.
 current_version=$(grep '^version:' pubspec.yaml | awk '{print $2}')
 if [[ "$current_version" == "$version" ]]; then
-  echo "Error: pubspec.yaml already has version $version."
-  exit 1
+  echo "Warning: pubspec.yaml already has version $version."
+else
+  # Update version in pubspec.yaml.
+  sed -i.bak "s/^version: .*/version: $version/" pubspec.yaml && rm -f pubspec.yaml.bak
+  echo "Updated pubspec.yaml to version $version."
 fi
-
-# Update version in pubspec.yaml.
-sed -i.bak "s/^version: .*/version: $version/" pubspec.yaml && rm -f pubspec.yaml.bak
-echo "Updated pubspec.yaml to version $version."
 
 # Run analysis and tests as a gate.
 # If either fails, restore pubspec.yaml so the working tree stays clean.
@@ -76,8 +75,10 @@ echo "Running flutter test..."
 flutter test || cleanup_on_failure
 
 # Commit and tag.
-git add pubspec.yaml
-git commit -m "Bump version to $version"
+if [[ "$current_version" != "$version" ]]; then
+  git add pubspec.yaml
+  git commit -m "Bump version to $version"
+fi
 git tag -a "v$version" -m "v$version"
 
 echo ""
