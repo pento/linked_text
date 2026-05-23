@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.3
+
+- Updated the `hooks` dependency to `^2.0.0`.
+- Bumped the minimum Dart SDK constraint to 3.10.0 and the minimum Flutter SDK to 3.38.0, matching the new requirement from `hooks` 2.0.
+
 ## 1.1.2
 
 - Prevent an out-of-bounds URL index in a string template from causing a crash. If an index is out of bounds, the link will simply be non-interactive.
