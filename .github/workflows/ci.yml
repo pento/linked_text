@@ -44,7 +44,7 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter test --coverage
-      - uses: pento/lcov-coverage-check@v2
+      - uses: pento/lcov-coverage-check@v3
         with:
           new-file-minimum-coverage: 80
           path: "lib/"
